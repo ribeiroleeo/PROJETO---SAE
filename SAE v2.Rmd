@@ -1,0 +1,707 @@
+---
+title: "Untitled"
+author: "Leonardo Ribeiro"
+date: "8 de junho de 2018"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+library("readxl")
+library("ggplot2")
+library("dplyr")
+library("stringr")
+
+```
+
+```{r ler dados}
+dados=read_excel("Base de dados_Processo Seletivo_com_ID.xlsx",sheet=1)
+```
+
+```{r}
+###ARRUMANDO O BANCO
+
+names(dados)=dados[1,]#nomes estavam na primeira linha
+dados=dados[-1,]
+
+str(dados)
+
+###SEPARANDO O BOLSA AUXILIO E MORADIA
+
+
+bolsa_aux=c()
+moradia=c()
+dados$`Bolsa Auxílio|Moradia`=str_replace(dados$`Bolsa Auxílio|Moradia`,"[|]","")
+for (i in c(1:length(dados$`Bolsa Auxílio|Moradia`))){
+   aux=unlist(str_split(dados$`Bolsa Auxílio|Moradia`[i],"[|]"))
+   bolsa_aux=append(bolsa_aux,aux[1])
+   moradia=append(moradia,aux[2])
+   aux=c()
+}
+
+moradia[which(dados$`Bolsa Auxílio|Moradia`==0)]=0 # tinha um valor que era 0
+
+dados$bolsa_aux=bolsa_aux
+dados$moradia=moradia
+
+
+##CONVERTENDO FORMATOS
+id=as.numeric(dados$ID)
+ano_processo=dados$`Ano do processo seletivo`
+bolsa=as.factor(dados$Bolsa)
+vigencia_inicio=as.Date.character(dados$`Vigência Início`,"%Y-%m-%d")
+vigencia_final=as.Date.character(dados$`Vigência Fim`,"%Y-%m-%d")
+curso=as.factor(dados$Curso)
+nivel=as.factor(dados$Nível)
+ic_momento_contemp=as.numeric(dados$`IC no momento da contemplação`)
+data_desvinc=as.Date.character(dados$`Desvinculação da bolsa`,"%Y-%m-%d")
+ic_insc=as.numeric(dados$IC)
+renda_total=as.numeric(dados$RT)
+grupo_familiar=as.numeric(dados$GF)
+doenca_grave=as.factor(dados$DG)
+gastos_moradia_indice=as.numeric(dados$MT)
+gastos_transp_inidce=as.numeric(dados$TR)
+escola_publica=as.factor(dados$EP)
+bolsa_aux_social_solicitada=as.factor(dados$`BAS (solicitada)`)
+alimentacao_solicitada=as.factor(dados$`Alimentação (solicitada)`)
+transp_solicitada=as.factor(dados$`Transporte (solicitada)`)
+moradia_solictada=as.factor(dados$`Moradia (solicitada)`)
+bolsa_aux_social_contemp=as.factor(dados$`BAS (contemplada)`)
+alimetacao_contemp=as.factor(dados$`Alimentação (contemplada)`)
+transp_contemp=as.factor(dados$`Transporte  (contemplada)`)
+moradia_contemp=as.factor(dados$`Moradia  (contemplada)`)
+paais=as.factor(dados$PAAIS)
+divergencia=as.factor(dados$`Divergência?`)
+#obs=(dados$Observação)
+bolsa_aux=as.factor(dados$bolsa_aux)
+moradia=as.factor(dados$moradia)
+
+
+dados1=data.frame(id,ano_processo,bolsa,vigencia_inicio,vigencia_final,curso,nivel,ic_momento_contemp,
+                  data_desvinc,ic_insc,renda_total,grupo_familiar,doenca_grave,gastos_moradia_indice,
+                  gastos_transp_inidce,escola_publica,bolsa_aux_social_solicitada,alimentacao_solicitada,
+                  transp_solicitada,moradia_solictada,bolsa_aux_social_contemp,alimetacao_contemp,
+                  transp_contemp,moradia_contemp,paais,divergencia,bolsa_aux,moradia)
+
+
+
+
+A <- c(22,23,25,26,64,88,73,105,106,22)
+B <- c(78,97,104,90,87,91,100,14,6,14,15,21,27,45,46,58,63,100,107,58,35,90,59,71,70,14,69,65,61,63)
+E <- c(33,81,34,5,32,98,60,92,53,102,76,24,95,31,51,79,48,42,36,83,8,89,12,13,43,34,49,101,102,11,41,108,10,9,39,2,4,53,40,29,1,28,51,5,93,84,50,94,5,2,1,29,79,41,4,86,3,82,9,72,10,39,11,12,89,8)
+H <- c(67,68,57,30,66,74,103,109,110,17,47,16,44,75,30,54,55,19,7,57,56,18,20,38,20,17,18,7,37,75,19,80,38)
+paais_novo1= str_detect(dados1$paais,": SIM")
+paais_novo2=dados1$paais=='SIM'
+dados1$paais_novo=paais_novo1+paais_novo2
+dados1$tempo_est <- dados1[,5]-dados1[,4]
+dados1$tempo_real<- dados1[,9]-dados1[,4]
+dados1$tipo_curso <- NA
+
+for (i in 1:nrow(dados1)){
+  if (any(A== dados1[i,6])){
+    dados1[i,33] <- "Artes"
+  }
+  if (any(B==dados1[i,6])){
+    dados1[i,33] <- "Biologicas"
+  }
+  if (any(E==dados1[i,6])){
+    dados1[i,33] <- "Exatas"
+  }
+  if (any(H==dados1[i,6])){
+    dados1[i,33] <- "Humanas"
+  }
+  if (dados1[i,6] == 200){
+    dados1[i,33] <- "Profis"
+  }
+  if (dados1[i,7] == "T"){
+    dados1[i,33] <- "Tecnologo"
+  }
+}
+dados1$V33=as.factor(dados1$V33)
+
+```
+
+Alguns pontos a se destacar sobre o banco de dados como todo.
+
+
+```{r}
+unique(dados$'Observação', is.na=FALSE) #observações
+
+dados1[which(!is.na(dados$'Observação')),c(1,2,3,8,17,27)]
+
+summary(dados1$ano_processo) #6484 dados NA
+summary(dados1$vigencia_inicio)
+summary(dados1$curso, is.na=TRUE)
+summary(dados1$nivel)
+
+
+#pessoas que não solicitaram porem foram contempladas
+```
+
+
+```{r visão pessoas}
+library(reshape2)
+
+##Bolsa
+#solitacao
+
+solicitacao=dados1%>%select(id,bolsa_aux_social_solicitada,moradia_solictada,transp_solicitada,alimentacao_solicitada,
+                            bolsa_aux_social_contemp,moradia_contemp,transp_contemp,alimetacao_contemp,renda_total,grupo_familiar,V33,nivel,ano_processo)
+
+solicitou=solicitacao%>%tidyr::gather(bolsa_solicitada,solicitou,c(bolsa_aux_social_solicitada,moradia_solictada,transp_solicitada,alimentacao_solicitada))%>%mutate(bolsa_solicitada1=if_else(bolsa_solicitada=="bolsa_aux_social_solicitada","BAS",if_else(bolsa_solicitada=="moradia_solictada","MORADIA",if_else(bolsa_solicitada=="transp_solicitada","TRANSPORTE",if_else(bolsa_solicitada=="alimentacao_solicitada","ALIMENTACAO","")))))%>%select(bolsa_solicitada,bolsa_solicitada1,solicitou,renda_total,grupo_familiar,V33,nivel,ano_processo)
+
+solicitou
+
+contemplou=solicitacao%>%tidyr::gather(bolsa_contemplada,contemplou,c(bolsa_aux_social_contemp,moradia_contemp,transp_contemp,alimetacao_contemp))%>%mutate(bolsa_contemplada1=if_else(bolsa_contemplada=="bolsa_aux_social_contemp","BAS",if_else(bolsa_contemplada=="moradia_contemp","MORADIA",if_else(bolsa_contemplada=="transp_contemp","TRANSPORTE",if_else(bolsa_contemplada=="alimetacao_contemp","ALIMENTACAO","")))))%>%select(bolsa_contemplada,bolsa_contemplada1,contemplou,renda_total,grupo_familiar,V33,nivel,ano_processo)
+
+contemplou
+bolsa=bind_cols(solicitou,contemplou)
+bolsa=bolsa%>%select(bolsa_solicitada1,solicitou,bolsa_contemplada1,contemplou,renda_total,grupo_familiar,nivel,V33,ano_processo)
+which(bolsa[,1]!=bolsa[,3])#vendo se tem algum diferente
+bolsa
+
+bolsa_solicitou=bolsa%>%filter(solicitou==1)
+
+
+quem_conseguiu_moradia=dados1%>%filter(moradia_contemp==1)%>%
+  select(id,V33,nivel,renda_total,grupo_familiar,bolsa_aux_social_solicitada,moradia_solictada,transp_solicitada,alimentacao_solicitada,bolsa_aux_social_contemp,moradia_contemp,transp_contemp,alimetacao_contemp)
+  
+comparar_bolsas_solicitou=quem_conseguiu_moradia%>%tidyr::gather(bolsa_solicitada,solicitou,c(bolsa_aux_social_solicitada,moradia_solictada,transp_solicitada,alimentacao_solicitada))%>%mutate(bolsa_solicitada1=if_else(bolsa_solicitada=="bolsa_aux_social_solicitada","BAS",if_else(bolsa_solicitada=="moradia_solictada","MORADIA",if_else(bolsa_solicitada=="transp_solicitada","TRANSPORTE",if_else(bolsa_solicitada=="alimentacao_solicitada","ALIMENTACAO","")))))%>%select(bolsa_solicitada,bolsa_solicitada1,solicitou,renda_total,grupo_familiar,V33,nivel)
+
+
+comparar_bolsas_conseguiu=quem_conseguiu_moradia%>%tidyr::gather(bolsa_contemplada,contemplou,c(bolsa_aux_social_contemp,moradia_contemp,transp_contemp,alimetacao_contemp))%>%mutate(bolsa_contemplada1=if_else(bolsa_contemplada=="bolsa_aux_social_contemp","BAS",if_else(bolsa_contemplada=="moradia_contemp","MORADIA",if_else(bolsa_contemplada=="transp_contemp","TRANSPORTE",if_else(bolsa_contemplada=="alimetacao_contemp","ALIMENTACAO","")))))%>%select(bolsa_contemplada,bolsa_contemplada1,contemplou,renda_total,grupo_familiar,V33,nivel)
+
+
+bas_dado_moradia=bind_cols(comparar_bolsas_solicitou,comparar_bolsas_conseguiu)%>%filter(bolsa_solicitada1=="BAS" & solicitou==1)
+
+
+
+plot_bas_dado_moradia=ggplot(bas_dado_moradia,aes(x=bolsa_solicitada1,fill=as.factor(contemplou)))+geom_bar(position="dodge")+ggtitle("Pedidos que conseguiram MORADIA e tentaram BAS")+labs(y="Quantidade",x="Situacao no BAS")+scale_fill_discrete(name="Situacao",breaks=c(0,1,2),labels=c("Indeferido","Deferido","Em espera"))+theme_light()
+ggsave("bas_dado_moradia_qtd.png")
+
+renda_bas_dado_moradia=bas_dado_moradia%>%group_by(contemplou)%>%summarise("renda_media"=mean(renda_total/grupo_familiar))
+ggplot(renda_bas_dado_moradia,aes(x=contemplou,y=renda_media,fill=contemplou))+geom_bar(stat="identity")
+
+
+comparar_bolsa_dado_moradia=bind_rows(bas_dado_moradia,alim_transp_dado_moradia)
+
+plot_qtd_bolsas_dado_moradia=ggplot(comparar_bolsa_dado_moradia,aes(bolsa_solicitada1,fill=contemplou))+geom_bar(position="dodge")+ggtitle("Situacao considerando apenas os contemplados na MORADIA")+labs(y="Quantidade",x="Situacao no BAS")+scale_fill_discrete(name="Situacao",breaks=c(0,1,2),labels=c("Indeferido","Deferido","Em espera"))+theme_light()
+
+ggsave("qtd_bolsas_dado_moradia.png")
+
+renda_bolsas_dado_moradia=comparar_bolsa_dado_moradia%>%group_by(contemplou,bolsa_solicitada1)%>%summarise("renda_media"=mean(renda_total/grupo_familiar))
+ggplot(renda_bolsas_dado_moradia,aes(x=bolsa_solicitada1,y=renda_media,fill=contemplou))+geom_bar(stat="identity",position="dodge")+scale_alpha_discrete(name="Situacao",breaks=c("0","1","2"),labels=c("Indeferido","Deferido","Em espera"))+labs(x="Bolsa",y="Renda média")+ggtitle("Renda media dado MORADIA")
+ggsave("renda_dado_bolsas_moradia")
+
+
+
+
+renda_area_nivel=dados1%>%group_by(nivel,V33)%>%summarise(renda_media=mean(renda_total/grupo_familiar))
+plot_renda_area_nivel=ggplot(renda_area_nivel,aes(x=V33,y=renda_media,fill=nivel))+geom_bar(stat="identity",position="dodge")+labs(y="Renda Média por pessoa",x="Area de Estudo")+ggtitle("Renda por Area em cada nivel")+theme_light()
+
+ggsave("renda_area_nivel.png")
+
+
+
+```
+
+
+
+```{r}
+
+alim_transp_dado_moradia=bind_cols(comparar_bolsas_solicitou,comparar_bolsas_conseguiu)%>%filter(bolsa_solicitada1=="TRANSPORTE" | bolsa_solicitada1== "ALIMENTACAO" & solicitou==1)
+
+plot_alim_transp_dado_moradia=ggplot(alim_transp_dado_moradia,aes(x=bolsa_solicitada1,fill=as.factor(contemplou)))+geom_bar(position="dodge")+ggtitle("Pedidos que conseguiram MORADIA \n e tentaram ALIMENTACAO OU TRANSPORTE")+labs(y="Quantidade",x="Situacao no BAS")+scale_fill_discrete(name="Situacao",breaks=c(0,1,2),labels=c("Indeferido","Deferido","Em espera"))+theme_light()
+
+ggsave("alim_transp_dado_moradia_qtd.png")
+
+quem_conseguiu_bas=dados1%>%filter(bolsa_aux_social_contemp==1)%>%
+  select(id,V33,nivel,renda_total,grupo_familiar,bolsa_aux_social_solicitada,moradia_solictada,transp_solicitada,alimentacao_solicitada,bolsa_aux_social_contemp,moradia_contemp,transp_contemp,alimetacao_contemp)
+
+moradia_bas=bind_cols(comparar_bolsas_solicitou,comparar_bolsas_conseguiu)%>%filter(bolsa_solicitada1=="MORADIA" & solicitou==1)
+
+plot_moradia_dado_bas=ggplot(moradia_bas,aes(x=bolsa_solicitada1,fill=as.factor(contemplou)))+geom_bar(position="dodge")+ggtitle("Pedidos que conseguiram BAS e tentaram MORADIA")+labs(y="Quantidade",x="Situacao no BAS")+scale_fill_discrete(name="Situacao",breaks=c(0,1,2),labels=c("Indeferido","Deferido","Em espera"))+theme_light()
+
+ggsave("moradia_dado_bas_qtd.png")
+
+
+```
+
+```{r}
+bolsa_solicitou
+plot_qtd_bolsa=ggplot(bolsa_solicitou,aes(bolsa_contemplada1,fill=as.factor(contemplou)))+geom_bar(position="dodge")+theme_light()+scale_fill_discrete(name="Situacao",breaks=c(0,1,2),labels=c("Indeferido","Deferido","Em espera"))+xlab("Bolsa")+ylab("Quantidade")+ggtitle("Quantidade de solicitações por bolsa")
+
+ggplot(bolsa_solicitou,aes(bolsa_contemplada1,fill=as.factor(contemplou)))+geom_bar(position="dodge")+theme_light()+scale_fill_discrete(name="Situacao",breaks=c(0,1,2),labels=c("Indeferido","Deferido","Em espera"))+xlab("Bolsa")+ylab("Quantidade")+ggtitle("Quantidade de solicitações por bolsa")+facet_grid(nivel~.)
+```
+bolsa_solicitou_nivel=bolsa_solicitou%>%group_by(nivel,bolsa_contemplada1,contemplou)%>%summarise("qtd"=n())
+
+want<-select(
+    mutate(
+        left_join(bolsa_solicitou_nivel,
+                  bolsa_solicitou_nivel %>%
+                      group_by(nivel) %>%
+                      summarize(quantity_sum=sum(qtd)),
+                  by="nivel"),
+        percentual=qtd/quantity_sum),
+    -quantity_sum)
+
+tabela_contingencia_nivel=want%>%select(nivel,bolsa_contemplada1,contemplou,percentual)%>%mutate(percentual = sprintf("%0.2f", percentual)) %>%
+    mutate(per= paste0(100*as.numeric(percentual),"%"))%>%select(Nivel=nivel,Bolsa=bolsa_contemplada1,contemplou,per)%>%spread(contemplou,per)%>%rename(Indeferido="0",Deferido="1",Espera="2")
+
+tabela_contingencia_nivel
+```
+```{r}
+bolsa_solicitou_area=bolsa_solicitou%>%group_by(V33,bolsa_contemplada1,  contemplou)%>%summarise("qtd"=n())%>%rename("area"=V33)
+bolsa_solicitou_area
+want1<-select(
+    mutate(
+        left_join(bolsa_solicitou_area,
+                  bolsa_solicitou_area %>%
+                      group_by(area) %>%
+                      summarize(quantity_sum=sum(qtd)),
+                  by="area"),
+        percentual=qtd/quantity_sum),
+    -quantity_sum)
+want1
+```{r}
+tabela_contingencia_area=want1%>%select(area,contemplou,percentual)%>%mutate(percentual = sprintf("%0.2f", percentual))%>% mutate(per= paste0(100*as.numeric(percentual),"%"))%>%select(Area=area,Bolsa=bolsa_contemplada1,contemplou,per)%>%spread(contemplou,per)%>%rename(Indeferido="0",Deferido="1",Espera="2")
+tabela_contingencia_area
+```
+
+```{r}
+
+solicitou_pessoa=solicitacao%>%tidyr::gather(bolsa_solicitada,solicitou,c(bolsa_aux_social_solicitada,moradia_solictada,transp_solicitada,alimentacao_solicitada))%>%
+  mutate(bolsa_solicitada1=if_else(bolsa_solicitada=="bolsa_aux_social_solicitada","BAS",if_else(bolsa_solicitada=="moradia_solictada","MORADIA",if_else(bolsa_solicitada=="transp_solicitada","TRANSPORTE",if_else(bolsa_solicitada=="alimentacao_solicitada","ALIMENTACAO","")))))%>%
+  select(id,bolsa_solicitada,bolsa_solicitada1,solicitou,renda_total,grupo_familiar,V33,nivel,ano_processo)
+
+solicitou_pessoa
+
+contemplou_pessoa=solicitacao%>%tidyr::gather(bolsa_contemplada,contemplou,c(bolsa_aux_social_contemp,moradia_contemp,transp_contemp,alimetacao_contemp))%>%
+  mutate(bolsa_contemplada1=if_else(bolsa_contemplada=="bolsa_aux_social_contemp","BAS",if_else(bolsa_contemplada=="moradia_contemp","MORADIA",if_else(bolsa_contemplada=="transp_contemp","TRANSPORTE",if_else(bolsa_contemplada=="alimetacao_contemp","ALIMENTACAO","")))))%>%
+  select(id,bolsa_contemplada,bolsa_contemplada1,contemplou,renda_total,grupo_familiar,V33,nivel,ano_processo)
+
+contemplou_pessoa
+
+
+bolsa_pessoa=bind_cols(solicitou_pessoa,contemplou_pessoa)
+bolsa_pessoa_solicitou=bolsa_pessoa%>%group_by(id,bolsa_solicitada)%>%summarise(solicitou=sum(as.numeric(solicitou)))%>%group_by(id,bolsa_solicitada)%>%filter(between(row_number(),1,1))%>%mutate(bolsa_solicitada1=if_else(bolsa_solicitada=="bolsa_aux_social_solicitada","BAS",if_else(bolsa_solicitada=="moradia_solictada","MORADIA",if_else(bolsa_solicitada=="transp_solicitada","TRANSPORTE",if_else(bolsa_solicitada=="alimentacao_solicitada","ALIMENTACAO","")))))
+
+```{r}
+bolsa_pessoa_solicitou_sem_rep=bolsa_pessoa_solicitou%>%group_by(id)%>%filter(between(row_number(),1,1))
+
+
+bolsa_pessoa_contemplou=bolsa_pessoa%>%group_by(id,bolsa_contemplada,V33,nivel)%>%summarise(contemplou=sum(as.numeric(contemplou)))%>%group_by(id,bolsa_contemplada)%>%filter(between(row_number(),1,1))%>%mutate(bolsa_contemplada1=if_else(bolsa_contemplada=="bolsa_aux_social_contemp","BAS",if_else(bolsa_contemplada=="moradia_contemp","MORADIA",if_else(bolsa_contemplada=="transp_contemp","TRANSPORTE",if_else(bolsa_contemplada=="alimetacao_contemp","ALIMENTACAO","")))))
+
+bolsa_pessoa_junto=bind_cols(bolsa_pessoa_solicitou,bolsa_pessoa_contemplou)%>%select(id,Area=V33,Nivel=nivel,bolsa_solicitada1,solicitou,bolsa_contemplada1,contemplou)%>%select(-bolsa_solicitada)
+
+bolsa_pessoa_solicitou_gg_area=bolsa_pessoa_junto%>%group_by(bolsa_solicitada1,Area)%>%summarise(solicitou=sum(solicitou))
+  
+  
+plot_qtd_pessoa_area_bolsa=ggplot(bolsa_pessoa_solicitou_gg_area,aes(x=bolsa_solicitada1,y=solicitou,fill=Area))+geom_bar(stat="identity",position="dodge")+theme_light()+ggtitle("Quantidade de pessoas diferentes de cada área em cada tipo de bolsa")+labs(y="Solictacoes",x="Bolsa")
+
+bolsa_pessoa_solicitou_gg_nivel=bolsa_pessoa_junto%>%group_by(bolsa_solicitada1,Nivel)%>%summarise(solicitou=sum(solicitou))
+
+
+ggplot(bolsa_pessoa,aes(y=renda_total,x=V33))+
+                                          geom_boxplot()+
+                                          ylim(c(0,2000))+
+                                          labs(y="Média da Renda Total",
+                                               x="Bolsa")+
+                                          ggtitle("Variabilidade de Renda entre as Areas")+
+                                          theme_light()
+
+ggsave("boxplot_renda_area.png")
+```
+plot_qtd_pessoa_bolsa_nivel=ggplot( subset(bolsa_pessoa_solicitou_gg_nivel, !is.na(Nivel)),aes(x=bolsa_solicitada1,y=solicitou,fill=Nivel))+geom_bar(stat="identity",position="dodge")+theme_light()+ggtitle("Quantidade de pessoas diferentes de cada nivel em cada tipo de bolsa")+labs(y="Solictacoes",x="Bolsa")
+
+
+```
+bolsa_pessoa_contemplou_sem_rep=bolsa_pessoa_contemplou%>%group_by(id)%>%filter(between(row_number(),1,1))
+
+bolsa_pessoa_solicitou
+bolsa_pessoa_contemplou%>%summarise(n=n_distinct(id))
+
+bolsa_pessoa=bind_cols(bolsa_pessoa_solicitou_sem_rep,bolsa_pessoa_contemplou_sem_rep)
+bolsa_pessoa%>%gather()
+
+ggplot(bolsa_pessoa,aes())
+```
+bolsa=bolsa%>%select(bolsa_solicitada1,solicitou,bolsa_contemplada1,contemplou,renda_total,grupo_familiar,nivel,V33,ano_processo)
+which(bolsa[,1]!=bolsa[,3])#vendo se tem algum diferente
+bolsa
+
+solicitacao1=solicitacao%>%gather(bolsa_solicitada)%>%filter(value==1)%>%select(id,variable)
+bolsa_solicitou
+
+names(solicitacao1)=c("id","solicitacao")
+
+solicitacao1_pessoa=bolsa_solicitou%>%group_by(id,solicitacao)%>%summarise("qtd"=n())
+
+tabela=solicitacao1_pessoa%>%group_by(solicitacao)%>%summarise("qtd"=n())
+```{r}
+ggplot(solicitacao1,aes(x=solicitacao,fill=solicitacao))+geom_bar()+ggtitle("Quantidade de solicitações")+scale_fill_discrete(name="Bolsas",breaks=c("bolsa_aux_social_solicitada","moradia_solictada","transp_solicitada","alimentacao_solicitada"),labels=c("Bolsa Auxílio Social","Moradia","Transporte","Alimentação"))+theme_light()+theme(axis.title.x = element_blank(),axis.text.x = element_blank(),axis.ticks.x = element_blank())+ylab("Quantidade")  # visão pedido
+
+ggplot(solicitacao1_pessoa,aes(x=solicitacao,fill=solicitacao))+geom_bar()+ggtitle("Quantidade de pessoas")+scale_fill_discrete(name="Bolsas",breaks=c("bolsa_aux_social_solicitada","moradia_solictada","transp_solicitada","alimentacao_solicitada"),labels=c("Bolsa Auxílio Social","Moradia","Transporte","Alimentação"))+theme_light()+theme(axis.title.x = element_blank(),axis.text.x = element_blank(),axis.ticks.x = element_blank())+ylab("Quantidade")  #visão pessoa
+
+#contemplacao
+
+
+contempacao=dados1%>%select(id,bolsa_aux_social_contemp,moradia_contemp,transp_contemp,alimetacao_contemp)
+
+contemplacao1=contempacao%>%melt(id.vars = "id", measure.vars = c("bolsa_aux_social_contemp","moradia_contemp","transp_contemp","alimetacao_contemp"))%>%filter(value==1)%>%select(id,variable)
+
+names(contemplacao1)=c("id","contemplacao")
+
+contemplacao1_pessoa=contemplacao1%>%group_by(id,contemplacao)%>%summarise("qtd"=n())
+
+tabela=contemplacao1_pessoa%>%group_by(contemplacao)%>%summarise("qtd"=n())
+
+ggplot(contemplacao1,aes(x=contemplacao,fill=contemplacao))+geom_bar()+ggtitle("Quantidade de solicitações")+scale_fill_discrete(name="Bolsas",breaks=c("bolsa_aux_social_contemp","moradia_contemp","transp_contemp","alimetacao_contemp"),labels=c("Bolsa Auxílio Social","Moradia","Transporte","Alimentação"))+theme_light()+theme(axis.title.x = element_blank(),axis.text.x = element_blank(),axis.ticks.x = element_blank())+ylab("Quantidade") # visão pedido
+
+ggplot(contemplacao1_pessoa,aes(x=contemplacao,fill=contemplacao))+geom_bar()+ggtitle("Quantidade de pessoas")+scale_fill_discrete(name="Bolsas",breaks=c("bolsa_aux_social_contemp","moradia_contemp","transp_contemp","alimetacao_contemp"),labels=c("Bolsa Auxílio Social","Moradia","Transporte","Alimentação"))+theme_light()+theme(axis.title.x = element_blank(),axis.text.x = element_blank(),axis.ticks.x = element_blank())+ylab("Quantidade")  #visão pessoa
+
+
+```{r}
+#renda bolsa
+
+#bas
+
+renda_bas=dados1%>%select(id,bolsa_aux_social_solicitada,bolsa_aux_social_contemp,V33,renda_total,grupo_familiar)
+
+renda_bas_solicitado=renda_bas%>%group_by(bolsa_aux_social_solicitada,bolsa_aux_social_contemp)%>%summarise("renda_media"=mean(renda_total/grupo_familiar))%>%rename("solicitada"=bolsa_aux_social_solicitada,"contemplada"=bolsa_aux_social_contemp)%>%filter(solicitada==1)%>%mutate("Situacao"=if_else(contemplada==1,"Deferido",if_else(contemplada==2,"Em espera","Indeferido")))%>% select(Situacao,renda_media)%>%mutate("Bolsa"="BAS")
+renda_bas_solicitado
+
+renda_bas_solicitado_total=renda_bas%>%group_by(bolsa_aux_social_solicitada,bolsa_aux_social_contemp)%>%summarise("renda_media"=mean(renda_total))%>%rename("solicitada"=bolsa_aux_social_solicitada,"contemplada"=bolsa_aux_social_contemp)%>%filter(solicitada==1)%>%mutate("Situacao"=if_else(contemplada==1,"Deferido",if_else(contemplada==2,"Em espera","Indeferido")))%>% select(Situacao,renda_media)%>%mutate("Bolsa"="BAS")
+
+
+renda_bas_nsolicitado=renda_bas%>%group_by(bolsa_aux_social_solicitada,bolsa_aux_social_contemp)%>%summarise("renda_media"=mean(renda_total/grupo_familiar))%>%rename("solicitada"=bolsa_aux_social_solicitada,"contemplada"=bolsa_aux_social_contemp)%>%mutate("Situacao"=if_else(contemplada==1,"Deferido",if_else(contemplada==2,"Em espera","Indeferido")))%>% select(Situacao,renda_media)%>%mutate("Bolsa"="BAS")
+renda_bas_solicitado
+
+#renda_bas_solicitado[,1]="BAS"
+
+#renda_bas_solicitado[,1]%>%as.character()%>%str_replace("1","BAS")
+
+#renda_bas_contemplado=renda_bas%>%group_by(bolsa_aux_social_contemp)%>%summarise("renda_media"=mean(renda_total/grupo_familiar))%>%rename("contemplada"=bolsa_aux_social_contemp)%>% as.data.frame()
+
+#renda_bas_contemplado[,1]="BAS"
+#moradia
+renda_moradia=dados1%>%select(id,moradia_solictada,moradia_contemp,V33,renda_total,grupo_familiar)
+
+renda_moradia_solicitado=renda_moradia%>%group_by(moradia_solictada,moradia_contemp)%>%summarise("renda_media"=mean(renda_total/grupo_familiar))%>%rename("solicitada"=moradia_solictada,"contemplada"=moradia_contemp)%>%filter(solicitada==1)%>%mutate("Situacao"=if_else(contemplada==1,"Deferido",if_else(contemplada==2,"Em espera","Indeferido")))%>% select(Situacao,renda_media)%>%as.data.frame()%>% mutate("Bolsa"="MORADIA")
+
+
+renda_moradia_solicitado_total=renda_moradia%>%group_by(moradia_solictada,moradia_contemp)%>%summarise("renda_media"=mean(renda_total))%>%rename("solicitada"=moradia_solictada,"contemplada"=moradia_contemp)%>%filter(solicitada==1)%>%mutate("Situacao"=if_else(contemplada==1,"Deferido",if_else(contemplada==2,"Em espera","Indeferido")))%>% select(Situacao,renda_media)%>%as.data.frame()%>% mutate("Bolsa"="MORADIA")
+
+renda_moradia_nsolicitado=renda_moradia%>%group_by(moradia_solictada,moradia_contemp)%>%summarise("renda_media"=mean(renda_total/grupo_familiar))%>%rename("solicitada"=moradia_solictada,"contemplada"=moradia_contemp)%>%mutate("Situacao"=if_else(contemplada==1,"Deferido",if_else(contemplada==2,"Em espera","Indeferido")))%>% select(Situacao,renda_media)%>%as.data.frame()%>% mutate("Bolsa"="MORADIA")
+
+
+renda_moradia_solicitado
+
+
+
+#renda_moradia_solicitado[,1]="MORADIA"
+
+#renda_moradia_contemplado=renda_moradia%>%group_by(moradia_contemp)%>%summarise("renda_media"=mean(renda_total/grupo_familiar))%>%rename("contemplada"=moradia_contemp)%>%filter(contemplada==1)%>% mutate("Bolsa"="TRANSPORTE")
+
+#renda_moradia_contemplado[,1]="MORADIA"
+
+#transporte
+renda_transp=dados1%>%select(id,transp_solicitada,transp_contemp,V33,renda_total,grupo_familiar)
+
+renda_transp_solicitado=renda_transp%>%group_by(transp_solicitada,transp_contemp)%>%summarise("renda_media"=mean(renda_total/grupo_familiar))%>%rename("solicitada"=transp_solicitada,"contemplada"=transp_contemp)%>%filter(solicitada==1)%>%mutate("Situacao"=if_else(contemplada==1,"Deferido",if_else(contemplada==2,"Em espera","Indeferido")))%>% select(Situacao,renda_media)%>%as.data.frame()%>% mutate("Bolsa"="TRANSPORTE")
+
+renda_transp_solicitado_total=renda_transp%>%group_by(transp_solicitada,transp_contemp)%>%summarise("renda_media"=mean(renda_total))%>%rename("solicitada"=transp_solicitada,"contemplada"=transp_contemp)%>%filter(solicitada==1)%>%mutate("Situacao"=if_else(contemplada==1,"Deferido",if_else(contemplada==2,"Em espera","Indeferido")))%>% select(Situacao,renda_media)%>%as.data.frame()%>% mutate("Bolsa"="TRANSPORTE")
+
+
+renda_transp_nsolicitado=renda_transp%>%group_by(transp_solicitada,transp_contemp)%>%summarise("renda_media"=mean(renda_total/grupo_familiar))%>%rename("solicitada"=transp_solicitada,"contemplada"=transp_contemp)%>%mutate("Situacao"=if_else(contemplada==1,"Deferido",if_else(contemplada==2,"Em espera","Indeferido")))%>% select(Situacao,renda_media)%>%as.data.frame()%>% mutate("Bolsa"="TRANSPORTE")
+
+#renda_transp_solicitado[,1]="TRANSPORTE"
+
+#renda_transp_contemplado=renda_transp%>%group_by(transp_contemp)%>%summarise("renda_media"=mean(renda_total/grupo_familiar))%>%rename("contemplada"=transp_contemp)%>%filter(contemplada==1)%>% as.data.frame()
+
+#renda_transp_contemplado[,1]="TRANSPORTE"
+
+#alimentacao
+renda_alimentacao=dados1%>%select(id,alimentacao_solicitada,alimetacao_contemp,V33,renda_total,grupo_familiar)
+
+renda_alimentacao_solicitado=renda_alimentacao%>%group_by(alimentacao_solicitada,alimetacao_contemp)%>%summarise("renda_media"=mean(renda_total/grupo_familiar))%>%rename("solicitada"=alimentacao_solicitada,"contemplada"=alimetacao_contemp)%>%filter(solicitada==1)%>%mutate("Situacao"=if_else(contemplada==1,"Deferido",if_else(contemplada==2,"Em espera","Indeferido")))%>% select(Situacao,renda_media)%>%as.data.frame()%>% mutate("Bolsa"="ALIMENTACAO")
+
+renda_alimentacao_solicitado_total=renda_alimentacao%>%group_by(alimentacao_solicitada,alimetacao_contemp)%>%summarise("renda_media"=mean(renda_total))%>%rename("solicitada"=alimentacao_solicitada,"contemplada"=alimetacao_contemp)%>%filter(solicitada==1)%>%mutate("Situacao"=if_else(contemplada==1,"Deferido",if_else(contemplada==2,"Em espera","Indeferido")))%>% select(Situacao,renda_media)%>%as.data.frame()%>% mutate("Bolsa"="ALIMENTACAO")
+
+
+renda_alimentacao_nsolicitado=renda_alimentacao%>%group_by(alimentacao_solicitada,alimetacao_contemp)%>%summarise("renda_media"=mean(renda_total/grupo_familiar))%>%rename("solicitada"=alimentacao_solicitada,"contemplada"=alimetacao_contemp)%>%mutate("Situacao"=if_else(contemplada==1,"Deferido",if_else(contemplada==2,"Em espera","Indeferido")))%>% select(Situacao,renda_media)%>%as.data.frame()%>% mutate("Bolsa"="ALIMENTACAO")
+
+
+#renda_alimentacao_solicitado[,1]="ALIMENTACAO"
+
+
+#renda_alimentacao_contemplado=renda_alimentacao%>%group_by(alimetacao_contemp)%>%summarise("renda_media"=mean(renda_total/grupo_familiar))%>%rename("contemplada"=alimetacao_contemp)%>%filter(contemplada==1)%>% as.data.frame()
+
+#renda_alimentacao_contemplado[,1]="ALIMENTACAO"
+
+
+
+renda_bolsa_solicitado=bind_rows(renda_bas_solicitado,renda_moradia_solicitado,renda_transp_solicitado,renda_alimentacao_solicitado)
+
+renda_bolsa_solicitado_total=bind_rows(renda_bas_solicitado_total,renda_moradia_solicitado_total,renda_transp_solicitado_total,renda_alimentacao_solicitado_total)
+
+
+
+renda_bolsa_nsolicitado=bind_rows(renda_bas_nsolicitado,renda_moradia_nsolicitado,renda_transp_nsolicitado,renda_alimentacao_nsolicitado)
+
+```
+```{r}
+#renda_bolsa_contemplado=bind_rows(renda_bas_contemplado,renda_moradia_contemplado,renda_transp_contemplado,renda_alimentacao_contemplado)
+
+#renda_bolsa_solicitado= renda_bolsa_solicitado%>%rename(Bolsa=solicitada)
+#renda_bolsa_contemplado= renda_bolsa_contemplado%>%rename(Bolsa=contemplada)
+#renda_bolsa=bind_rows(renda_bolsa_solicitado,renda_bolsa_contemplado)
+
+#renda_bolsa$Situacao=as.factor(c(rep("solicitada",4),rep("contemplada",4)))
+#renda_bolsa
+
+#ggplot(renda_bolsa,aes(x=Bolsa, y=renda_media,fill=Situacao))+geom_bar(stat="identity",position="dodge")+ggtitle("Renda média por bolsa")+theme_light()
+
+#ggplot(renda_bolsa_solicitado,aes(x=solicitada,y=renda_media,fill=as.factor(solicitada)))+geom_bar(stat="identity")
+
+#ggplot(renda_bolsa,aes(x=solicitada,y=renda_media))+geom_point()+geom_line()
+jpeg('rplot.jpg')
+```{r}
+plot_renda_bolsa=ggplot(renda_bolsa_solicitado,aes(x=Bolsa,y=renda_media,fill=Situacao))+geom_bar(stat="identity",position="dodge")+ggtitle("Renda média por Bolsa")+ylab("Renda media por pessoa")+theme_light()+ylim(c(0,2000))
+
+plot_renda_bolsa=ggplot(renda_bolsa_solicitado_total,aes(x=Bolsa,y=renda_media,fill=Situacao))+geom_bar(stat="identity",position="dodge")+ggtitle("Renda média por Bolsa")+ylab("Renda media total")+geom_hline(yintercept = 3*954,label="3 salarios")+theme_light()
+
+ggsave("renda_total_bolsa_linha_horizontal_3salarios.png")
+
+renda_bolsa_solicitado%>%arrange((Bolsa))
+``` 
+
+ggsave("renda_bolsa.png")
+
+
+dev.off()
+plot_renda_bolsa_nsolicitaram=ggplot(renda_bolsa_nsolicitado,aes(x=Bolsa,y=renda_media,fill=Situacao))+geom_bar(stat="identity",position="dodge")+ggtitle("Renda média por Bolsa (incluindo os que nao solicitaram)")+ylab("Renda media")+theme_light()
+ggsave("renda_bolsa_nsolicitaram.png")
+
+```
+
+```{r}
+#renda_moradia_solicitado[,1]="MORADIA"
+
+#renda_moradia_contemplado=renda_moradia%>%group_by(moradia_contemp)%>%summarise("renda_media"=mean(renda_total/grupo_familiar))%>%rename("contemplada"=moradia_contemp)%>%filter(contemplada==1)%>% mutate("Bolsa"="TRANSPORTE")
+
+#renda_moradia_contemplado[,1]="MORADIA"
+
+#transporte
+renda_transp=dados1%>%select(id,transp_solicitada,transp_contemp,V33,renda_total,grupo_familiar)
+
+renda_transp_solicitado=renda_transp%>%group_by(transp_solicitada,transp_contemp)%>%summarise("renda_media"=mean(renda_total/grupo_familiar))%>%rename("solicitada"=transp_solicitada,"contemplada"=transp_contemp)%>%filter(solicitada==1)%>%mutate("Situacao"=if_else(contemplada==1,"Deferido",if_else(contemplada==2,"Em espera","Indeferido")))%>% select(Situacao,renda_media)%>%as.data.frame()%>% mutate("Bolsa"="TRANSPORTE")
+
+
+
+renda_transp_nsolicitado=renda_transp%>%group_by(transp_solicitada,transp_contemp)%>%summarise("renda_media"=mean(renda_total/grupo_familiar))%>%rename("solicitada"=transp_solicitada,"contemplada"=transp_contemp)%>%mutate("Situacao"=if_else(contemplada==1,"Deferido",if_else(contemplada==2,"Em espera","Indeferido")))%>% select(Situacao,renda_media)%>%as.data.frame()%>% mutate("Bolsa"="TRANSPORTE")
+
+#renda_transp_solicitado[,1]="TRANSPORTE"
+
+#renda_transp_contemplado=renda_transp%>%group_by(transp_contemp)%>%summarise("renda_media"=mean(renda_total/grupo_familiar))%>%rename("contemplada"=transp_contemp)%>%filter(contemplada==1)%>% as.data.frame()
+
+#renda_transp_contemplado[,1]="TRANSPORTE"
+
+#alimentacao
+renda_alimentacao=dados1%>%select(id,alimentacao_solicitada,alimetacao_contemp,V33,renda_total,grupo_familiar)
+
+renda_alimentacao_solicitado=renda_alimentacao%>%group_by(alimentacao_solicitada,alimetacao_contemp)%>%summarise("renda_media"=mean(renda_total/grupo_familiar))%>%rename("solicitada"=alimentacao_solicitada,"contemplada"=alimetacao_contemp)%>%filter(solicitada==1)%>%mutate("Situacao"=if_else(contemplada==1,"Deferido",if_else(contemplada==2,"Em espera","Indeferido")))%>% select(Situacao,renda_media)%>%as.data.frame()%>% mutate("Bolsa"="ALIMENTACAO")
+
+renda_alimentacao_nsolicitado=renda_alimentacao%>%group_by(alimentacao_solicitada,alimetacao_contemp)%>%summarise("renda_media"=mean(renda_total/grupo_familiar))%>%rename("solicitada"=alimentacao_solicitada,"contemplada"=alimetacao_contemp)%>%mutate("Situacao"=if_else(contemplada==1,"Deferido",if_else(contemplada==2,"Em espera","Indeferido")))%>% select(Situacao,renda_media)%>%as.data.frame()%>% mutate("Bolsa"="ALIMENTACAO")
+```
+
+
+
+```{r}
+plot_qtd_bolsa
+ggsave("qtd_bolsa.png")
+
+
+
+plot_qtd_pessoa_area_bolsa
+ggsave("qtd_pessoa_area_bolsa.png")
+plot_qtd_pessoa_bolsa_nivel
+ggsave("qtd_pessoa_bolsa_nivel.png")
+
+tabela_contingencia_area
+tabela_contingencia_nivel
+
+plot_renda_bolsa
+
+
+```
+
+
+```{r}
+##boxplot
+
+renda_bas=dados1%>%select(id,bolsa_aux_social_solicitada,bolsa_aux_social_contemp,V33,renda_total,grupo_familiar)
+
+renda_bas_solicitado=renda_bas%>%group_by(bolsa_aux_social_solicitada,bolsa_aux_social_contemp)%>%summarise("renda_media"=mean(renda_total/grupo_familiar))%>%rename("solicitada"=bolsa_aux_social_solicitada,"contemplada"=bolsa_aux_social_contemp)%>%filter(solicitada==1)%>%mutate("Situacao"=if_else(contemplada==1,"Deferido",if_else(contemplada==2,"Em espera","Indeferido")))%>% select(Situacao,renda_media)%>%mutate("Bolsa"="BAS")
+renda_bas_solicitado
+
+renda_bas_nsolicitado=renda_bas%>%group_by(bolsa_aux_social_solicitada,bolsa_aux_social_contemp)%>%summarise("renda_media"=mean(renda_total/grupo_familiar))%>%rename("solicitada"=bolsa_aux_social_solicitada,"contemplada"=bolsa_aux_social_contemp)%>%mutate("Situacao"=if_else(contemplada==1,"Deferido",if_else(contemplada==2,"Em espera","Indeferido")))%>% select(Situacao,renda_media)%>%mutate("Bolsa"="BAS")
+renda_bas_solicitado
+
+#renda_bas_solicitado[,1]="BAS"
+
+#renda_bas_solicitado[,1]%>%as.character()%>%str_replace("1","BAS")
+
+#renda_bas_contemplado=renda_bas%>%group_by(bolsa_aux_social_contemp)%>%summarise("renda_media"=mean(renda_total/grupo_familiar))%>%rename("contemplada"=bolsa_aux_social_contemp)%>% as.data.frame()
+
+#renda_bas_contemplado[,1]="BAS"
+#moradia
+renda_moradia=dados1%>%select(id,moradia_solictada,moradia_contemp,V33,renda_total,grupo_familiar)
+
+renda_moradia_solicitado=renda_moradia%>%group_by(moradia_solictada,moradia_contemp)%>%summarise("renda_media"=mean(renda_total/grupo_familiar))%>%rename("solicitada"=moradia_solictada,"contemplada"=moradia_contemp)%>%filter(solicitada==1)%>%mutate("Situacao"=if_else(contemplada==1,"Deferido",if_else(contemplada==2,"Em espera","Indeferido")))%>% select(Situacao,renda_media)%>%as.data.frame()%>% mutate("Bolsa"="MORADIA")
+
+
+renda_moradia_nsolicitado=renda_moradia%>%group_by(moradia_solictada,moradia_contemp)%>%summarise("renda_media"=mean(renda_total/grupo_familiar))%>%rename("solicitada"=moradia_solictada,"contemplada"=moradia_contemp)%>%mutate("Situacao"=if_else(contemplada==1,"Deferido",if_else(contemplada==2,"Em espera","Indeferido")))%>% select(Situacao,renda_media)%>%as.data.frame()%>% mutate("Bolsa"="MORADIA")
+
+
+renda_moradia_solicitado
+
+
+
+#renda_moradia_solicitado[,1]="MORADIA"
+
+#renda_moradia_contemplado=renda_moradia%>%group_by(moradia_contemp)%>%summarise("renda_media"=mean(renda_total/grupo_familiar))%>%rename("contemplada"=moradia_contemp)%>%filter(contemplada==1)%>% mutate("Bolsa"="TRANSPORTE")
+
+#renda_moradia_contemplado[,1]="MORADIA"
+
+#transporte
+renda_transp=dados1%>%select(id,transp_solicitada,transp_contemp,V33,renda_total,grupo_familiar)
+
+renda_transp_solicitado=renda_transp%>%group_by(transp_solicitada,transp_contemp)%>%summarise("renda_media"=mean(renda_total/grupo_familiar))%>%rename("solicitada"=transp_solicitada,"contemplada"=transp_contemp)%>%filter(solicitada==1)%>%mutate("Situacao"=if_else(contemplada==1,"Deferido",if_else(contemplada==2,"Em espera","Indeferido")))%>% select(Situacao,renda_media)%>%as.data.frame()%>% mutate("Bolsa"="TRANSPORTE")
+
+
+
+renda_transp_nsolicitado=renda_transp%>%group_by(transp_solicitada,transp_contemp)%>%summarise("renda_media"=mean(renda_total/grupo_familiar))%>%rename("solicitada"=transp_solicitada,"contemplada"=transp_contemp)%>%mutate("Situacao"=if_else(contemplada==1,"Deferido",if_else(contemplada==2,"Em espera","Indeferido")))%>% select(Situacao,renda_media)%>%as.data.frame()%>% mutate("Bolsa"="TRANSPORTE")
+
+#renda_transp_solicitado[,1]="TRANSPORTE"
+
+#renda_transp_contemplado=renda_transp%>%group_by(transp_contemp)%>%summarise("renda_media"=mean(renda_total/grupo_familiar))%>%rename("contemplada"=transp_contemp)%>%filter(contemplada==1)%>% as.data.frame()
+
+#renda_transp_contemplado[,1]="TRANSPORTE"
+
+#alimentacao
+renda_alimentacao=dados1%>%select(id,alimentacao_solicitada,alimetacao_contemp,V33,renda_total,grupo_familiar)
+
+renda_alimentacao_solicitado=renda_alimentacao%>%group_by(alimentacao_solicitada,alimetacao_contemp)%>%summarise("renda_media"=mean(renda_total/grupo_familiar))%>%rename("solicitada"=alimentacao_solicitada,"contemplada"=alimetacao_contemp)%>%filter(solicitada==1)%>%mutate("Situacao"=if_else(contemplada==1,"Deferido",if_else(contemplada==2,"Em espera","Indeferido")))%>% select(Situacao,renda_media)%>%as.data.frame()%>% mutate("Bolsa"="ALIMENTACAO")
+
+renda_alimentacao_nsolicitado=renda_alimentacao%>%group_by(alimentacao_solicitada,alimetacao_contemp)%>%summarise("renda_media"=mean(renda_total/grupo_familiar))%>%rename("solicitada"=alimentacao_solicitada,"contemplada"=alimetacao_contemp)%>%mutate("Situacao"=if_else(contemplada==1,"Deferido",if_else(contemplada==2,"Em espera","Indeferido")))%>% select(Situacao,renda_media)%>%as.data.frame()%>% mutate("Bolsa"="ALIMENTACAO")
+
+
+
+
+dados1%>%select(id,bolsa_aux_social_solicitada,moradia_solictada,transp_solicitada,alimentacao_solicitada,renda_total,grupo_familiar)%>%gather(bolsa_solicitada,solicitou,c(bolsa_aux_social_solicitada,moradia_solictada,transp_solicitada,alimentacao_solicitada))%>%mutate(renda_pessoa=renda_total/grupo_familiar)%>%full_join(dados1%select(id,bolsa_aux_),by=id)
+
+
+
+
+renda_bolsa_todos_solicitado=dados1%>%select(id,bolsa_aux_social_solicitada,moradia_solictada,transp_solicitada,alimentacao_solicitada,renda_total,grupo_familiar)%>%
+  gather(bolsa_solicitada,solicitou,c(bolsa_aux_social_solicitada,moradia_solictada,transp_solicitada,alimentacao_solicitada))%>%
+  mutate(renda_pessoa=renda_total/grupo_familiar)
+  
+renda_bolsa_todos_contemplado=dados1%>%select(id,bolsa_aux_social_contemp,moradia_contemp,transp_contemp,alimetacao_contemp)%>% gather(bolsa_contemplada,contemplou,c(bolsa_aux_social_contemp,moradia_contemp,transp_contemp,alimetacao_contemp))
+              
+renda_bolsa_todos=bind_cols(renda_bolsa_todos_solicitado,renda_bolsa_todos_contemplado)%>%mutate(bolsa_contemplada1=if_else(bolsa_contemplada=="bolsa_aux_social_contemp","BAS",if_else(bolsa_contemplada=="moradia_contemp","MORADIA",if_else(bolsa_contemplada=="transp_contemp","TRANSPORTE",if_else(bolsa_contemplada=="alimetacao_contemp","ALIMENTACAO","")))))   
+
+ggplot(renda_bolsa_todos,aes(x=bolsa_contemplada1,y=renda_pessoa,fill=contemplou))+geom_boxplot()+ylim(c(0,1000))+labs(x="Bolsa",y="Renda")+ggtitle("Variabilidade da Renda por Cursos")+scale_fill_discrete(name = "Situacao",
+                         breaks = c("0","1","2"),
+                         labels = c("Indeferido","Deferido","Em espera")) +
+  
+         theme_light()
+  
+ggsave("boxplot_renda_bolsas.png")  
+  
+
+
+
+dados1%>%select(id,escola_publica,bolsa_aux_social_contemp,moradia_contemp,transp_contemp,alimetacao_contemp)%>% gather(bolsa_contemplada,contemplou,c(bolsa_aux_social_contemp,moradia_contemp,transp_contemp,alimetacao_contemp))
+  
+
+
+```{r}
+salario_minimo_solicitou=dados1%>%select(id,ano_processo,bolsa_aux_social_solicitada,moradia_solictada,transp_solicitada,alimentacao_solicitada)%>%gather(bolsa_solicitada,solicitou,c(bolsa_aux_social_solicitada,moradia_solictada,transp_solicitada,alimentacao_solicitada))
+
+salario_minimo_contemplou=dados1%>%                                                                                       select(id,ano_processo,bolsa_aux_social_contemp,moradia_contemp,transp_contemp,alimetacao_contemp,renda_total)%>%
+                        gather(bolsa_contemplada,contemplou,c(bolsa_aux_social_contemp,moradia_contemp,transp_contemp,alimetacao_contemp))%>%
+                        rename(id1=id,ano_processo1=ano_processo)
+
+salario_minimo_sem_agrupar=bind_cols(salario_minimo_solicitou,salario_minimo_contemplou)%>%
+                                             filter(solicitou==1)%>%
+mutate(salario_minimo=if_else(ano_processo=="2006",350,if_else(ano_processo=="2007",380,if_else(ano_processo=="2008",415,if_else(ano_processo=="2009",465,if_else(ano_processo=="2010",540,if_else(ano_processo=="2011",545,if_else(ano_processo=="2012",622,0))))))))%>%
+  select(id,ano_processo,salario_minimo,bolsa_solicitada,solicitou,bolsa_contemplada,contemplou,renda_total)%>%mutate(bolsa_contemplada1=if_else(bolsa_contemplada=="bolsa_aux_social_contemp","BAS",if_else(bolsa_contemplada=="moradia_contemp","MOR",if_else(bolsa_contemplada=="transp_contemp","TR",if_else(bolsa_contemplada=="alimetacao_contemp","AL","")))))
+
+
+
+salario_minimo_sem_agrupar%>%mutate(passava=if_else(renda_total<3*salario_minimo,1,0))%>%group_by(passava,bolsa_contemplada1,contemplou)%>%summarise(qtd=n())%>%spread(contemplou,qtd)%>%rename(regra_salario_minimo=passava)
+
+
+```
+```{r}
+plot_salario_minimo=ggplot(salario_minimo_sem_agrupar,aes(y=renda_total,x=bolsa_contemplada1,colour=contemplou,alpha=0.1,size=contemplou))+
+                  geom_point()+
+                      geom_hline(aes(yintercept=salario_minimo*3))+
+                        ylim(c(0,3000))+
+                       facet_wrap(~ ano_processo, ncol=4,nrow=4, scales = "free_x")+
+                         labs(y="Renda Total",x="Bolsa")+
+                               ggtitle("Testando o criterio do salario minimo")+
+                                   scale_color_discrete(name="Situacao",
+                                                         breaks=c("0","1","2"),
+                                                             labels=c("Indeferido","Deferido","em espera"))+
+      scale_size_discrete(name="Situacao",
+                                                         breaks=c("0","1","2"),
+                                                             labels=c("Indeferido","Deferido","em espera"))+
+  scale_alpha(name="Situacao",
+                                                         breaks=element_blank(),
+                                                             labels=element_blank(),guide=FALSE)+
+                                   theme_light()
+
+ggsave("salario_minimo.png")
+
+salario_minimo_sem_agrupar%>%
+            group_by(bolsa_solicitada)%>%
+              summarise(renda_total_media=mean(renda_to))
+  
+
+tabela_contingencia_area                            
+
+```
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+```{r}
+```
