@@ -73,6 +73,7 @@ colnames(dados) <- c("ID","Ano do processo seletivo","Bolsa","Vigência Início"
                      "Bolsa Auxílio|Moradia","PAAIS","Divergência?","Observação")
 
 
+##Arrumando o PAAIS
 
 paais_novo1= str_detect(dados$PAAIS,": SIM")
 paais_novo2=dados$PAAIS=='SIM'
